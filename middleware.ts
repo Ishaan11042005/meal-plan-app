@@ -2,7 +2,9 @@
 
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { PrismaClient } from "@prisma/client/edge";
+
+const prisma = new PrismaClient();
 
 // 1. Define your "public" routes that do NOT require authentication
 const isPublicRoute = createRouteMatcher([
@@ -31,36 +33,35 @@ const isSignUpRoute = createRouteMatcher(["/sign-up(.*)"]);
 export default clerkMiddleware(async (auth, req) => {
   const userAuth = await auth();
   const { userId } = userAuth;
-  const url = req.nextUrl.clone();
+  const url = req.url;
 
   // 2.a) If route is NOT public and user not signed in → sign in
   if (!isPublicRoute(req) && !userId) {
-    return NextResponse.redirect(new URL("/sign-up", req.url));
+    return NextResponse.redirect(new URL("/sign-up", url));
   }
 
+  // If already signed in and they visit /sign-up, redirect them to mealplan (or wherever)
   if (isSignUpRoute(req) && userId) {
-    return NextResponse.redirect(new URL("/mealplan", req.url));
+    return NextResponse.redirect(new URL("/mealplan", url));
   }
 
-  // 2.b) If route is /mealplan, check subscription in Supabase
+  // 2.b) If route is /mealplan or /profile, check subscription in Prisma
   if (isMealPlanRoute(req) || isProfileRoute(req)) {
-    // Query the 'profiles' table for user’s subscription status
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("subscription_active")
-      .eq("user_id", userId)
-      .single();
+    try {
+      const profile = await prisma.profile.findUnique({
+        where: { userId: userId },
+        select: { subscriptionActive: true },
+      });
 
-    if (profileError && profileError.code !== "PGRST116") {
-      // PGRST116: Row not found
-      console.error("Supabase Select Error:", profileError.message);
-      // Optionally handle the error
-      return NextResponse.redirect(new URL("/subscribe", req.url));
-    }
+      console.log("pedroooo", profile);
 
-    // If no profile or subscription not active → redirect to /subscribe
-    if (!profile?.subscription_active) {
-      return NextResponse.redirect(new URL("/subscribe", req.url));
+      // If no profile found or subscription is not active → redirect to /subscribe
+      if (!profile?.subscriptionActive) {
+        return NextResponse.redirect(new URL("/subscribe", url));
+      }
+    } catch (error: any) {
+      console.error("Prisma Select Error:", error?.message || error);
+      return NextResponse.redirect(new URL("/subscribe", url));
     }
   }
 

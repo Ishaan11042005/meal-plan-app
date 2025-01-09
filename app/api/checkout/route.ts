@@ -1,5 +1,3 @@
-// app/api/checkout/route.ts
-
 import { NextRequest, NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { getPriceIdFromType } from "@/lib/plans";
@@ -8,7 +6,6 @@ export async function POST(request: NextRequest) {
   try {
     const { planType, userId, email } = await request.json();
 
-    // Validate planType and userId
     if (!planType || !userId || !email) {
       return NextResponse.json(
         { error: "Plan type, User ID, and Email are required." },
@@ -25,7 +22,6 @@ export async function POST(request: NextRequest) {
     }
 
     const priceId = getPriceIdFromType(planType);
-
     if (!priceId) {
       return NextResponse.json(
         { error: "Price ID for the selected plan not found." },
@@ -44,7 +40,7 @@ export async function POST(request: NextRequest) {
       ],
       customer_email: email,
       mode: "subscription",
-      metadata: { clerkUserId: userId, planType: planType }, // Pass userId in metadata for webhook association
+      metadata: { clerkUserId: userId, planType },
       success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/subscribe`,
     });
