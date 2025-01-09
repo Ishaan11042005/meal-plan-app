@@ -128,7 +128,6 @@ const handleInvoicePaymentFailed = async (invoice: Stripe.Invoice) => {
     await prisma.profile.update({
       where: { userId },
       data: {
-        subscriptionStatus: "past_due",
         subscriptionActive: false,
       },
     });
@@ -170,7 +169,6 @@ const handleSubscriptionDeleted = async (subscription: Stripe.Subscription) => {
     await prisma.profile.update({
       where: { userId },
       data: {
-        subscriptionStatus: "canceled",
         subscriptionActive: false,
         stripeSubscriptionId: null,
       },

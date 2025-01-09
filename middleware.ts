@@ -1,22 +1,18 @@
-// src/middleware.ts or app/middleware.ts
-
+// app/middleware.ts
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client/edge";
-
-const prisma = new PrismaClient();
 
 // 1. Define your "public" routes that do NOT require authentication
 const isPublicRoute = createRouteMatcher([
-  "/", // homepage
+  "/",
   "/sign-up(.*)",
-  "/subscribe(.*)", // subscription flow
-  "/api/checkout(.*)", // Stripe checkout
+  "/subscribe(.*)",
+  "/api/checkout(.*)",
   "/api/stripe-webhook(.*)",
-  // Exclude profile routes to make them protected
+  "/api/check-subscription(.*)",
 ]);
 
-// 2. Define a route group for Meal Plan. We want to check subscription on these
+// 2. Define a route group for Meal Plan. We want to check subscription
 const isMealPlanRoute = createRouteMatcher(["/mealplan(.*)"]);
 
 // 3. Define a route group for Profile Routes (Protected but may not require subscription)
@@ -24,51 +20,61 @@ const isProfileRoute = createRouteMatcher(["/profile(.*)"]);
 
 const isSignUpRoute = createRouteMatcher(["/sign-up(.*)"]);
 
-/**
- * Clerk middleware logic:
- * - If route is not "public" & user isn't signed in → redirect to /sign-in
- * - If route is a Meal Plan route & user doesn't have active subscription → redirect to /subscribe
- * - If route is a Profile route & user isn't signed in → redirect to /
- */
+// Clerk's middleware
 export default clerkMiddleware(async (auth, req) => {
   const userAuth = await auth();
   const { userId } = userAuth;
-  const url = req.url;
+  const { pathname, origin } = req.nextUrl;
 
-  // 2.a) If route is NOT public and user not signed in → sign in
+  console.log("Pedro", pathname, isPublicRoute(req), userId);
+
+  // If it's the check-subscription route, skip logic to avoid loops
+  if (pathname === "/api/check-subscription") {
+    return NextResponse.next();
+  }
+
+  // If route is NOT public & user not signed in → redirect to /sign-up
   if (!isPublicRoute(req) && !userId) {
-    return NextResponse.redirect(new URL("/sign-up", url));
+    return NextResponse.redirect(new URL("/sign-up", origin));
   }
 
-  // If already signed in and they visit /sign-up, redirect them to mealplan (or wherever)
+  // If user is signed in and visits /sign-up → redirect to mealplan
   if (isSignUpRoute(req) && userId) {
-    return NextResponse.redirect(new URL("/mealplan", url));
+    return NextResponse.redirect(new URL("/mealplan", origin));
   }
 
-  // 2.b) If route is /mealplan or /profile, check subscription in Prisma
-  if (isMealPlanRoute(req) || isProfileRoute(req)) {
+  // If route is mealplan or profile → check subscription via the API route
+  if ((isMealPlanRoute(req) || isProfileRoute(req)) && userId) {
     try {
-      const profile = await prisma.profile.findUnique({
-        where: { userId: userId },
-        select: { subscriptionActive: true },
-      });
+      // Make a POST request to our internal API
+      const checkSubRes = await fetch(
+        `${origin}/api/check-subscription?userId=${userId}`,
+        {
+          method: "GET",
+          headers: {
+            // Forward cookies if needed for session checks
+            cookie: req.headers.get("cookie") || "",
+          },
+        }
+      );
 
-      console.log("pedroooo", profile);
-
-      // If no profile found or subscription is not active → redirect to /subscribe
-      if (!profile?.subscriptionActive) {
-        return NextResponse.redirect(new URL("/subscribe", url));
+      // Then parse JSON
+      if (checkSubRes.ok) {
+        const data = await checkSubRes.json();
+        if (!data.subscriptionActive) {
+          return NextResponse.redirect(new URL("/subscribe", origin));
+        }
+      } else {
+        // handle error
+        return NextResponse.redirect(new URL("/subscribe", origin));
       }
-    } catch (error: any) {
-      console.error("Prisma Select Error:", error?.message || error);
-      return NextResponse.redirect(new URL("/subscribe", url));
+    } catch (error) {
+      console.error("Error calling /api/check-subscription:", error);
+      return NextResponse.redirect(new URL("/subscribe", origin));
     }
   }
 
-  // 2.c) If route is /profile, ensure user is signed in (already handled above)
-  // Additional checks for profile routes can be added here if necessary
-
-  // Otherwise, do nothing special → allow the request
+  // Otherwise allow the request
   return NextResponse.next();
 });
 
