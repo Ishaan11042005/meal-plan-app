@@ -10,19 +10,18 @@
     "stripe:listen": "stripe listen --forward-to localhost:3000/api/webhook",
     "postinstall": "prisma generate"
   },
- "dependencies": {
-  "@clerk/nextjs": "^4.29.1",
-  "@prisma/client": "^6.12.0",
-  "@stripe/stripe-js": "^2.3.0",
-  "@tanstack/react-query": "^5.21.0",
-  "next": "14.2.25",
-  "openai": "^4.38.0",
-  "react": "18.2.0",
-  "react-dom": "18.2.0",
-  "react-hot-toast": "^2.4.1",
-  "stripe": "^12.18.0"
-}
-
+  "dependencies": {
+    "@clerk/nextjs": "^4.29.1",
+    "@prisma/client": "^6.12.0",
+    "@stripe/stripe-js": "^2.3.0",
+    "@tanstack/react-query": "^5.21.0",
+    "next": "14.2.25",
+    "openai": "^4.38.0",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "react-hot-toast": "^2.4.1",
+    "stripe": "^12.18.0"
+  },
   "devDependencies": {
     "@types/node": "20.11.30",
     "@types/react": "18.2.47",
