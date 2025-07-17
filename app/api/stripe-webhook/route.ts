@@ -3,7 +3,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma"; // <-- import Prisma client
 import Stripe from "stripe";
-
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string);
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET as string;
 
@@ -73,8 +72,6 @@ const handleCheckoutSessionCompleted = async (
     console.error("No subscription ID found in session.");
     return;
   }
-
-  console.log("HHHHEHHEHE");
   // Update Prisma with subscription details
   try {
     await prisma.profile.update({

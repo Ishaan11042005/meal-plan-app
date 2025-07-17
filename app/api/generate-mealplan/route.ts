@@ -52,7 +52,7 @@ export async function POST(request: Request) {
 
     // Send the prompt to the AI model
     const response = await openai.chat.completions.create({
-      model: "meta-llama/llama-3.2-3b-instruct:free", // Ensure this model is accessible and suitable
+      model: "meta-llama/llama-3.3-70b-instruct:free", // Ensure this model is accessible and suitable
       messages: [
         {
           role: "user",
